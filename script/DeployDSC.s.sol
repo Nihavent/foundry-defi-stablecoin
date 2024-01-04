@@ -16,7 +16,9 @@ contract DeployDSC is Script {
     function run() external 
     returns (
         DecentralisedStableCoin, 
-        DSCEngine)
+        DSCEngine,
+        HelperConfig)
+        
     {
         HelperConfig config = new HelperConfig();
 
@@ -38,6 +40,6 @@ contract DeployDSC is Script {
 
         vm.stopBroadcast();
 
-        return (dsc, engine);
+        return (dsc, engine, config);
     }
 }
