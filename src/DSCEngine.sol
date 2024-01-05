@@ -283,11 +283,7 @@ contract DSCEngine is ReentrancyGuard {
         _revertIfHealthFactorIsBroken(msg.sender);
     }
 
-
-
     function getHealthFactor() external view {}
-
-
 
     ///////////////////////////////////////////
     // Private & Internal View Functions     //
@@ -354,7 +350,7 @@ contract DSCEngine is ReentrancyGuard {
         (uint256 totalDscMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
         
         uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
-        return (collateralAdjustedForThreshold * PRECISION / totalDscMinted);
+        return ((collateralAdjustedForThreshold * PRECISION) / totalDscMinted);
     }
 
     // 1. Check health factor (do they have enough collateral)
@@ -364,6 +360,16 @@ contract DSCEngine is ReentrancyGuard {
         if (userHealthFactor < MIN_HEALTH_FACTOR) {
             revert DSCEngine__BreaksHealthFactor(userHealthFactor);
         }
+    }
+
+    function _calculateHealthFactor(uint256 totalDscMinted, uint256 collateralValueInUsd)
+        internal
+        pure
+        returns (uint256)
+    {
+        if (totalDscMinted == 0) return type(uint256).max;
+        uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+        return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
     }
 
 
@@ -407,5 +413,30 @@ contract DSCEngine is ReentrancyGuard {
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
     }
 
+    function getAccountInformation(address user) 
+    external
+    view 
+    returns (
+        uint256 totalDscMinted, 
+        uint256 collateralValueInUsd)
+    {
+        (totalDscMinted, collateralValueInUsd) =  _getAccountInformation(user);
+    } 
+
+    function getCollateralDepositedInTokenAmount(
+        address user, 
+        address token
+    ) external view returns (uint256) {
+        return s_collateralDeposited[user][token];
+    }
+
+
+    function calculateHealthFactor(uint256 totalDscMinted, uint256 collateralValueInUsd)
+        external
+        pure
+        returns (uint256)
+    {
+        return _calculateHealthFactor(totalDscMinted, collateralValueInUsd);
+    }
 
 }

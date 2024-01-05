@@ -50,7 +50,7 @@ contract DecentralisedStableCoin is ERC20Burnable, Ownable {
         if(_amount <= 0){
             revert DecentralisedStableCoin__MustBeMoreThanZero();
         }
-        if(balance <= _amount){
+        if(balance < _amount){
             revert DecentralisedStableCoin__BurnAmountExceedsBalance();
         }
         // super.burn() calls the .burn() function from the parent class (ERC20Burnable)
