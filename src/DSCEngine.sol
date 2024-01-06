@@ -30,6 +30,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {IERC20} from  "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {Test, console} from "forge-std/Test.sol";
+import {OracleLib} from "./libraries/OracleLib.sol";
 
 /*
  * @title DSCEngine
@@ -62,6 +63,12 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__MintFailed();
     error DSCEngine__HealthFactorOK();
     error DSCEngine__HealthFactorNotImproved();
+
+    ////////////////////////////
+    // Types                  //
+    ////////////////////////////
+
+    using OracleLib for AggregatorV3Interface;
 
     ////////////////////////////
     // State Variables        //
@@ -260,18 +267,18 @@ contract DSCEngine is ReentrancyGuard {
         }
         // Calculate the token amount (in WETH for example) that the debtToCover translates to
         uint256 tokenAmountFromDebtcovered = getTokenAmountFromUsd(collateralContractAddr, debtToCover);
-        console.log("DSCEngine: tokenAmountFromDebtcovered ", tokenAmountFromDebtcovered);
+        //console.log("DSCEngine: tokenAmountFromDebtcovered ", tokenAmountFromDebtcovered);
 
         // Calculate a liquidator bonus
         uint256 bonusCollateral = (tokenAmountFromDebtcovered * LIQUIDATOR_BONUS) / LIQUIDATION_PRECISION;
 
         // Calculate the total amunt of collateral to redeem
         uint256 totalCollateralToRedeem = tokenAmountFromDebtcovered + bonusCollateral;
-        console.log("DSCEngine: totalCollateralToRedeem ", totalCollateralToRedeem);
+        //console.log("DSCEngine: totalCollateralToRedeem ", totalCollateralToRedeem);
 
         // Redeem this collateral
         _redeemCollateral(collateralContractAddr, totalCollateralToRedeem, user, msg.sender);
-        console.log("Checkpoint ");
+        //console.log("Checkpoint ");
 
         // Burn the DSC
         _burnDsc(debtToCover, user, msg.sender);
@@ -386,7 +393,7 @@ contract DSCEngine is ReentrancyGuard {
     returns (uint256)  {
         // get price of token
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (,int256 price,,,) = priceFeed.latestRoundData();
+        (,int256 price,,,) = priceFeed.stalePriceCheckLatestRound();
 
         return usdAmountInWei * PRECISION / (uint256(price) * ADDITIONAL_FEED_PRECISION);
 
@@ -406,7 +413,7 @@ contract DSCEngine is ReentrancyGuard {
 
     function getUsdValue(address token, uint256 amount) public view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (,int256 price,,,) = priceFeed.latestRoundData();
+        (,int256 price,,,) = priceFeed.stalePriceCheckLatestRound();
         // If 1 ETH = $1,000, the returned value from Chainlink will be 1000 * 1e8
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
     }

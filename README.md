@@ -7,7 +7,4 @@ Stablecoin project
    1. People can only mint the stablecoin with enough collateral (coded)
 3. Collateral: exogenous (other crypto) wETH/wBTC (ERC20 versions of ETH/BTC)
 
-
-
-
-
+1. What our invariant/properties?
