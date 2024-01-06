@@ -29,7 +29,7 @@ import {DecentralisedStableCoin} from "./DecentralisedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from  "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-
+import {Test, console} from "forge-std/Test.sol";
 
 /*
  * @title DSCEngine
@@ -260,15 +260,18 @@ contract DSCEngine is ReentrancyGuard {
         }
         // Calculate the token amount (in WETH for example) that the debtToCover translates to
         uint256 tokenAmountFromDebtcovered = getTokenAmountFromUsd(collateralContractAddr, debtToCover);
+        console.log("DSCEngine: tokenAmountFromDebtcovered ", tokenAmountFromDebtcovered);
 
         // Calculate a liquidator bonus
         uint256 bonusCollateral = (tokenAmountFromDebtcovered * LIQUIDATOR_BONUS) / LIQUIDATION_PRECISION;
 
         // Calculate the total amunt of collateral to redeem
         uint256 totalCollateralToRedeem = tokenAmountFromDebtcovered + bonusCollateral;
+        console.log("DSCEngine: totalCollateralToRedeem ", totalCollateralToRedeem);
 
         // Redeem this collateral
-        _redeemCollateral(collateralContractAddr, totalCollateralToRedeem,user, msg.sender);
+        _redeemCollateral(collateralContractAddr, totalCollateralToRedeem, user, msg.sender);
+        console.log("Checkpoint ");
 
         // Burn the DSC
         _burnDsc(debtToCover, user, msg.sender);
@@ -283,7 +286,6 @@ contract DSCEngine is ReentrancyGuard {
         _revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    function getHealthFactor() external view {}
 
     ///////////////////////////////////////////
     // Private & Internal View Functions     //
@@ -306,14 +308,16 @@ contract DSCEngine is ReentrancyGuard {
         i_dsc.burn(amountDscToBurn);
     }
 
+
+    /* 
+     * @dev This function only ever gets called from other functions, so we don't need the modifier checks
+     */
     function _redeemCollateral(
         address tokenCollateralAddress, 
         uint256 amountCollateral, 
         address from, 
         address to
     ) private
-        moreThanZero(amountCollateral)
-        nonReentrant 
     {
         s_collateralDeposited[from][tokenCollateralAddress] -= amountCollateral;
         emit CollateralRedeemed(from, to, tokenCollateralAddress, amountCollateral);
@@ -321,7 +325,6 @@ contract DSCEngine is ReentrancyGuard {
         if (!success) {
             revert DSCEngine__TransferFailed();
         }
-        _revertIfHealthFactorIsBroken(from);
     }
 
 
@@ -340,23 +343,18 @@ contract DSCEngine is ReentrancyGuard {
      * Returns how close to liquidation a user is.
      * If a user has a health factor of < 1 then they can get liquidated
      */
-    function _healthFactor(address user) 
-    private 
-    view 
-    returns (uint256 healthFactor) 
-    {
-        // total DSC minted
-        // total collateral value
+    function _healthFactor(address user) private view returns (uint256) {
         (uint256 totalDscMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
-        
-        uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
-        return ((collateralAdjustedForThreshold * PRECISION) / totalDscMinted);
+        console.log("DSCEngine: totalDscMinted ", totalDscMinted);
+        console.log("DSCEngine: collateralValueInUsd ", collateralValueInUsd);
+        return _calculateHealthFactor(totalDscMinted, collateralValueInUsd);
     }
 
     // 1. Check health factor (do they have enough collateral)
     // 2. Revert if they don't
     function _revertIfHealthFactorIsBroken(address user) internal view {
         uint256 userHealthFactor = _healthFactor(user);
+        console.log("DSCEngine: userHealthFactor ", userHealthFactor);
         if (userHealthFactor < MIN_HEALTH_FACTOR) {
             revert DSCEngine__BreaksHealthFactor(userHealthFactor);
         }
@@ -437,6 +435,51 @@ contract DSCEngine is ReentrancyGuard {
         returns (uint256)
     {
         return _calculateHealthFactor(totalDscMinted, collateralValueInUsd);
+    }
+
+
+    function getPrecision() external pure returns (uint256) {
+        return PRECISION;
+    }
+
+    function getAdditionalFeedPrecision() external pure returns (uint256) {
+        return ADDITIONAL_FEED_PRECISION;
+    }
+
+    function getLiquidationThreshold() external pure returns (uint256) {
+        return LIQUIDATION_THRESHOLD;
+    }
+
+    function getLiquidationBonus() external pure returns (uint256) {
+        return LIQUIDATOR_BONUS;
+    }
+
+    function getLiquidationPrecision() external pure returns (uint256) {
+        return LIQUIDATION_PRECISION;
+    }
+
+    function getMinHealthFactor() external pure returns (uint256) {
+        return MIN_HEALTH_FACTOR;
+    }
+
+    function getCollateralTokens() external view returns (address[] memory) {
+        return s_collateralTokens;
+    }
+
+    function getDsc() external view returns (address) {
+        return address(i_dsc);
+    }
+
+    function getCollateralTokenPriceFeed(address token) external view returns (address) {
+        return s_priceFeeds[token];
+    }
+
+    function getCollateralBalanceOfUser(address user, address token) external view returns (uint256) {
+        return s_collateralDeposited[user][token];
+    }
+
+    function getHealthFactor(address user) external view returns (uint256) {
+        return _healthFactor(user);
     }
 
 }
